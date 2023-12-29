@@ -12,7 +12,7 @@ const getInputParams = () => {
 
 
 var { token, profileId } = getInputParams();
-const autoHandler = new GLAutoForwardGmail(token, profileId, "meomapmap11@gmail.com", "@r15v31811", "jinkey.coredev@gmail.com");
+const autoHandler = new GLAutoForwardGmail(token, profileId, "meomapmap11@gmail.com", "@R15v31811", "jinkey.coredev@gmail.com");
 console.log(token);
 console.log(profileId);
 

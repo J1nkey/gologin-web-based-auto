@@ -79,18 +79,17 @@ class GLAutoForwardGmail {
             return;
         }
     }
-
     
     async loginEmailAsync() {
         if(this._isNoLoginPageLoaded == true) {
-            this.loginEmailFromHomePage();
+            await this.loginEmailFromHomePageAsync();
         }
         else {
-            this.loginEmailFromAccountPage();
+            this.loginEmailFromAccountPageAsync();
         }
     }
 
-    async loginEmailFromHomePage() {
+    async loginEmailFromHomePageAsync() {
         const loginBtnSelector = "a.button.button--medium.button--mobile-before-hero-only";
         const emailTextBoxSelector = "input[type=email]#identifierId";
         const passwordTextBoxSelector = "input[type=password]"
@@ -114,8 +113,9 @@ class GLAutoForwardGmail {
         
         await this._currentPage.type(passwordTextBoxSelector, this._password);
         await (await this._currentPage.$('div#passwordNext')).tap();    // tap next button
-    }
 
+        await this.closeIntroduceSiteIfExists()
+    }
 
     async loginEmailFromAccountPage() {
 
@@ -131,11 +131,51 @@ class GLAutoForwardGmail {
         await this._currentPage.goto(url);
     }
 
-    
+    async closeIntroduceSiteIfExists() {
+        await this._currentPage.waitFor(10000);
+        let searchText = "You’re signed in";
+        const [element] = await this._currentPage.$x(`//*[contains(text(), "${searchText}")]`)
+
+        if(element) {
+            let xpath = "//a[text()='Not now']";
+            var matchingElement = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+            
+            if(matchingElement != null) {
+                const event = new MouseEvent('click', {
+                    bubbles: true,
+                    cancelable: true,
+                    view: window
+                });
+                matchingElement.dispatchEvent(event);
+            }
+        }
+    }
+
+    async OpenMailForwardSetting() {
+        await this._currentPage.goto("https://mail.google.com/mail/u/0/#settings/fwdandpop");
+        await this._currentPage.waitForSelector("input[type=\"button\"][value=\"Add a forwarding address\"]", {visible: true});
+
+        let searchText = "Enable POP for";
+        var matchingElement = await this._currentPage.$x(`//*[contains(text(), "${searchText}")]`)
+
+        if(matchingElement != null) {
+           
+        }
+        // var btnAddMailForward = await this._currentPage.$("input[type=\"button\"][value=\"Add a forwarding address\"]");
+        // await btnAddMailForward.tap();
+
+        // await this._currentPage.waitForSelector("div.:p1.contentEl", {visible: true});
+        // await this._currentPage.waitFor(3000);
+
+        // await this._currentPage.type("input[type=text]#:o9", this._mailForwarded);
+        // await (await this._currentPage.$("button[name=\"next\"]")).tap();
+    }
+
     async startScript() {
         await this.openBrowserAsync();
         await this.redirectToGmailPageAsync();
         await this.loginEmailAsync()
+        await this.OpenMailForwardSetting();
     }
 }
 

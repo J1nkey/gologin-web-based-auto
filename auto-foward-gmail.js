@@ -169,6 +169,53 @@ class GLAutoForwardGmail {
 
         // await this._currentPage.type("input[type=text]#:o9", this._mailForwarded);
         // await (await this._currentPage.$("button[name=\"next\"]")).tap();
+
+        // Enable IMAP & POP action
+        let imapSelector = "label[for=\":jw\"]";
+        let imapSelectorXpath = `//label[contains(text(), "Enable IMAP")]`;
+
+        let popSelector = "label[for=\":1l\"]";
+        let popSelectorXpath = `//label[contains(., 'Enable POP for all mail') and span[contains(text(), 'all mail')]]`;
+
+        let popSearchingResult = await this._currentPage.$x(popSelectorXpath);
+        if(popSearchingResult) {
+            await popSearchingResult[0].click();
+        }
+        let imapSearchingResult = await this._currentPage.$x(imapSelectorXpath);
+        if(imapSearchingResult) {
+            await imapSearchingResult[0].click();
+        }
+
+        await this._currentPage.waitFor(2000);
+        let btnSave = await this._currentPage.$("button[guidedhelpid=\"save_changes_button\"]");
+        await btnSave.click();
+
+        await this._currentPage.waitFor(5000);
+        await this.HandleForwardVerify();
+    }
+
+    async HandleForwardVerify() {
+        const verifyText = "We need to verify it's you to continue";
+        const btnVerifyContinueXpath = "//span[@jsname=\"V67aGc\"][@class=\"mUIrbf-anl\"][contains(text(), \"Continue\")]"
+        const verifyWentWrong = "An error occurred with the secure Google verification. Try again later.";
+
+        let verifyPanel = await this._currentPage.$x(`//div[@id=\"c3\"][contains(text(), \"${verifyText}\")]`);
+        if(verifyPanel) {
+            const pageTarget = this._currentPage.target();
+            await (await this._currentPage.$x(btnVerifyContinueXpath))[0].click()
+            const newTarget = await this._browser.waitForTarget(target => target.opener() === pageTarget);
+            const newPage = await newTarget.page();
+
+            try {
+                if(!(await newPage.waitForXPath(
+                    `//span[contains(text(), \"Google wants to make sure it's really you trying to enable IMAP access in Gmail.\")]`))) {
+                        return;
+                }
+            }
+            catch(e) {
+                console.log(e);
+            }
+        }
     }
 
     async startScript() {

@@ -36,7 +36,7 @@ class GLAutoForwardGmail {
     async openBrowserAsync() {
         var connectionResult = await this._glBroker.openConnectionAsync();
 
-        if(connectionResult.isSuccess == false) {
+        if (connectionResult.isSuccess == false) {
             console.log("An error was happened when initialized chrome instance...");
         }
 
@@ -58,30 +58,51 @@ class GLAutoForwardGmail {
         const gmailNoLoginHeaderSelector = "div.feature__chapter__title";       // title nearest to the carousel on page
         const gmailHasLoggedInSelector = "div.UI";      // the messages container
 
-        this._currentPage.setDefaultTimeout(20000);
-        let noLoginPageNodeLoad = this._currentPage.waitForSelector(gmailNoLoginHeaderSelector)
+        let noLoginPageNodeLoad = await this._currentPage.waitForSelector(gmailNoLoginHeaderSelector, {timeout: 10000})
             .then(() => {
                 console.log("The Gmail home page has been loaded");
-            });
+				this._isNoLoginPageLoaded = true;
+            })
+			.catch(error => {
+				console.log("Current page is not home page, trying to test ");
+				return;
+			});
 
-        if(noLoginPageNodeLoad != null) {
-            this._isNoLoginPageLoaded = true;
+        if (this._isNoLoginPageLoaded == true) {
             return;
         }
 
-        let loggedInPageNodeLoad = this._currentPage.waitForSelector(gmailHasLoggedInSelector)
+		let isRedirectToSignInPage = 
+			await this._currentPage.waitForSelector('input[type=email]#identifierId', {timeout: 20000})
+			.then(() => {
+				console.log('The sign in page is loaded!!!');
+				this._isNoLoginPageLoaded = true;
+			})
+			.catch(err => {
+				console.log("Error to select the selector, maybe selector is not exist or visible in current page");
+			});
+		
+		if(this._isNoLoginPageLoaded == true) {
+			return;
+		}
+
+        let loggedInPageNodeLoad = await this._currentPage.waitForSelector(gmailHasLoggedInSelector, {timeout: 20000})
         .then(() => {
             console.log("An account is storage on browser, the logged in page loaded!");
-        });
-
-        if(loggedInPageNodeLoad != null) {
             this._isNoLoginPageLoaded = true;
+        })
+		.catch(err => {
+			console.log("Error to select the selector, maybe selector is not exist or visible");
+			return;
+		});
+
+        if (this._isNoLoginPageLoaded == true) {
             return;
         }
     }
     
     async loginEmailAsync() {
-        if(this._isNoLoginPageLoaded == true) {
+        if (this._isNoLoginPageLoaded == true) {
             await this.loginEmailFromHomePageAsync();
         }
         else {
@@ -95,18 +116,18 @@ class GLAutoForwardGmail {
         const passwordTextBoxSelector = "input[type=password]"
         let loginBtn = await this._currentPage.$(loginBtnSelector); // DOM
         
-        if(loginBtn != null) {
+        if (loginBtn != null) {
             await loginBtn.tap()    // tap the center of element
         }
 
-        await this._currentPage.waitForSelector(emailTextBoxSelector);
+        await this._currentPage.waitForSelector(emailTextBoxSelector, {timeout: 10000, visible: true});
         await this._currentPage.waitFor(5000);    // wait for 5 seconds
 
         await this._currentPage.type(emailTextBoxSelector, this._email);
         await (await this._currentPage.$('div#identifierNext')).tap();    // tap next button
 
-        let pwdDom = await this._currentPage.waitForSelector(passwordTextBoxSelector);
-        if(pwdDom == null)
+        let pwdDom = await this._currentPage.waitForSelector(passwordTextBoxSelector, {timeout: 10000, visible: true});
+        if (pwdDom == null)
         { return; }
 
         await this._currentPage.waitFor(5000);    // wait for 5 seconds
@@ -122,12 +143,12 @@ class GLAutoForwardGmail {
     }
 
     async redirectToPageAsync(url) {
-        if(this._browser.connected) {
+        if (this._browser.connected) {
             this.openBrowserAsync();
         }
         this._currentPage = await this._browser.newPage();
         await this._currentPage.setUserAgent(this._userAgentSettingString);
-        // await this._currentPage.setViewport({width: this._defaultPageWidth, height: this._defaultPageHeight, deviceScaleFactor: 1});
+        await this._currentPage.setViewport({ width: this._defaultPageWidth, height: this._defaultPageHeight, deviceScaleFactor: 1 });
         await this._currentPage.goto(url);
     }
 
@@ -136,11 +157,11 @@ class GLAutoForwardGmail {
         let searchText = "You’re signed in";
         const [element] = await this._currentPage.$x(`//*[contains(text(), "${searchText}")]`)
 
-        if(element) {
+        if (element) {
             let xpath = "//a[text()='Not now']";
             var matchingElement = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
             
-            if(matchingElement != null) {
+            if (matchingElement != null) {
                 const event = new MouseEvent('click', {
                     bubbles: true,
                     cancelable: true,
@@ -153,22 +174,26 @@ class GLAutoForwardGmail {
 
     async OpenMailForwardSetting() {
         await this._currentPage.goto("https://mail.google.com/mail/u/0/#settings/fwdandpop");
-        await this._currentPage.waitForSelector("input[type=\"button\"][value=\"Add a forwarding address\"]", {visible: true});
+        await this._currentPage.waitForSelector("input[type=\"button\"][value=\"Add a forwarding address\"]", { visible: true });
 
         let searchText = "Enable POP for";
         var matchingElement = await this._currentPage.$x(`//*[contains(text(), "${searchText}")]`)
 
-        if(matchingElement != null) {
+        if (matchingElement != null) {
            
         }
-        // var btnAddMailForward = await this._currentPage.$("input[type=\"button\"][value=\"Add a forwarding address\"]");
-        // await btnAddMailForward.tap();
+        var btnAddMailForward = await this._currentPage.$("input[type=\"button\"][value=\"Add a forwarding address\"]");
+        await btnAddMailForward.tap();
 
-        // await this._currentPage.waitForSelector("div.:p1.contentEl", {visible: true});
-        // await this._currentPage.waitFor(3000);
+		let typeForwardEmailDialogXpath = `//div[contains(text(), "Please enter a new forwarding email address")]`;
+		await this._currentPage.waitForXPath(typeForwardEmailDialogXpath, {visible: true, timeout: 30000});
+        await this._currentPage.waitFor(3000);
 
-        // await this._currentPage.type("input[type=text]#:o9", this._mailForwarded);
-        // await (await this._currentPage.$("button[name=\"next\"]")).tap();
+        await this._currentPage.type("input[type=text]", this._mailForwarded);
+        await (await this._currentPage.$("button[name=\"next\"]")).tap();
+
+		// Verify state
+		this.verifyAccount();
 
         // Enable IMAP & POP action
         let imapSelector = "label[for=\":jw\"]";
@@ -177,12 +202,13 @@ class GLAutoForwardGmail {
         let popSelector = "label[for=\":1l\"]";
         let popSelectorXpath = `//label[contains(., 'Enable POP for all mail') and span[contains(text(), 'all mail')]]`;
 
+		await this._currentPage.waitForXPath(imapSelectorXpath, {timeout: 30000});
         let popSearchingResult = await this._currentPage.$x(popSelectorXpath);
-        if(popSearchingResult) {
+        if (popSearchingResult) {
             await popSearchingResult[0].click();
         }
         let imapSearchingResult = await this._currentPage.$x(imapSelectorXpath);
-        if(imapSearchingResult) {
+        if (imapSearchingResult) {
             await imapSearchingResult[0].click();
         }
 
@@ -200,19 +226,19 @@ class GLAutoForwardGmail {
         const verifyWentWrong = "An error occurred with the secure Google verification. Try again later.";
 
         let verifyPanel = await this._currentPage.$x(`//div[@id=\"c3\"][contains(text(), \"${verifyText}\")]`);
-        if(verifyPanel) {
+        if (verifyPanel) {
             const pageTarget = this._currentPage.target();
             await (await this._currentPage.$x(btnVerifyContinueXpath))[0].click()
             const newTarget = await this._browser.waitForTarget(target => target.opener() === pageTarget);
             const newPage = await newTarget.page();
 
             try {
-                if(!(await newPage.waitForXPath(
+                if (!(await newPage.waitForXPath(
                     `//span[contains(text(), \"Google wants to make sure it's really you trying to enable IMAP access in Gmail.\")]`))) {
                         return;
                 }
             }
-            catch(e) {
+            catch (e) {
                 console.log(e);
             }
         }
@@ -221,7 +247,7 @@ class GLAutoForwardGmail {
     async startScript() {
         await this.openBrowserAsync();
         await this.redirectToGmailPageAsync();
-        await this.loginEmailAsync()
+        await this.loginEmailAsync();
         await this.OpenMailForwardSetting();
     }
 }

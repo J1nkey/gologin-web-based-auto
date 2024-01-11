@@ -1,6 +1,7 @@
 import puppeteer from "puppeteer-core";
 
 import GoLoginBroker from "./gologin-broker.js";
+import { AccountDisabledException, VerifyAccountException } from "./errors/custom-errors.js"
 
 class GLAutoForwardGmail {
     _glBroker;
@@ -103,7 +104,12 @@ class GLAutoForwardGmail {
     
     async loginEmailAsync() {
         if (this._isNoLoginPageLoaded == true) {
-            await this.loginEmailFromHomePageAsync();
+            try {
+                await this.loginEmailFromHomePageAsync();
+            }
+            catch (e) {
+                throw e;
+            }
         }
         else {
             this.loginEmailFromAccountPageAsync();
@@ -120,26 +126,42 @@ class GLAutoForwardGmail {
             await loginBtn.tap()    // tap the center of element
         }
 
-        await this._currentPage.waitForSelector(emailTextBoxSelector, {timeout: 10000, visible: true});
+        await this._currentPage.waitForSelector(emailTextBoxSelector, {timeout: 15000, visible: true});
         await this._currentPage.waitFor(5000);    // wait for 5 seconds
 
         await this._currentPage.type(emailTextBoxSelector, this._email);
         await (await this._currentPage.$('div#identifierNext')).tap();    // tap next button
 
-        let pwdDom = await this._currentPage.waitForSelector(passwordTextBoxSelector, {timeout: 10000, visible: true});
+        // check verify after type in the account name
+        let verifyHeaderTextXpath = '//span[@jsslot][contains(text(), "Verify it’s you")]';
+        // let verifyContentXpath = '//span[@jsslot][contains(text(), "To help keep your account safe, Google wants to make sure")]';
+        
+        // throw an exception if there is a verify process 
+        if((await this._currentPage.$x(verifyHeaderTextXpath)).length > 0) {
+            throw new VerifyAccountException('A verify process happens after type in username');
+        }
+
+        let pwdDom = await this._currentPage.waitForSelector(passwordTextBoxSelector, {timeout: 15000, visible: true});
         if (pwdDom == null)
         { return; }
 
         await this._currentPage.waitFor(5000);    // wait for 5 seconds
-        
         await this._currentPage.type(passwordTextBoxSelector, this._password);
         await (await this._currentPage.$('div#passwordNext')).tap();    // tap next button
 
+        await this.handleCloseGoogleAlerts();
         await this.closeIntroduceSiteIfExists()
     }
 
     async loginEmailFromAccountPage() {
 
+    }
+
+    async handleCloseGoogleAlerts() {
+        let accountDisabledXpath = '//span[@jsslot][contains(text(), "Your account has been disabled")]';
+        if(await this._currentPage.$x(accountDisabledXpath) != null) {
+            throw new AccountDisabledException("The signed in account has been disabled");
+        }
     }
 
     async redirectToPageAsync(url) {
@@ -245,10 +267,15 @@ class GLAutoForwardGmail {
     }
 
     async startScript() {
-        await this.openBrowserAsync();
-        await this.redirectToGmailPageAsync();
-        await this.loginEmailAsync();
-        await this.OpenMailForwardSetting();
+        try {
+            await this.openBrowserAsync();
+            await this.redirectToGmailPageAsync();
+            await this.loginEmailAsync();
+            await this.OpenMailForwardSetting();
+        }
+        catch(e) {
+            console.log(`Error: ${e.message}.`);
+        }
     }
 }
 

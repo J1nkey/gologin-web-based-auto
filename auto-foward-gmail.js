@@ -1,7 +1,7 @@
 import puppeteer from "puppeteer-core";
 
 import GoLoginBroker from "./gologin-broker.js";
-import { AccountDisabledException, VerifyAccountException } from "./errors/custom-errors.js"
+import { AccountDisabledException, VerifyAccountException, PasswordChangedException } from "./errors/custom-errors.js"
 
 class GLAutoForwardGmail {
     _glBroker;
@@ -108,6 +108,7 @@ class GLAutoForwardGmail {
                 await this.loginEmailFromHomePageAsync();
             }
             catch (e) {
+                console.log(`Error: ${e.message}`);
                 throw e;
             }
         }
@@ -149,6 +150,14 @@ class GLAutoForwardGmail {
         await this._currentPage.type(passwordTextBoxSelector, this._password);
         await (await this._currentPage.$('div#passwordNext')).tap();    // tap next button
 
+        await this._currentPage.waitFor(5000);
+        // checking password was changed or not
+        let passwordChangedNotifyXpath = '//span[@jsslot][contains(text(), "Your password was changed")]';
+        let alertElements = await this._currentPage.$x(passwordChangedNotifyXpath);
+        if(alertElements.length > 0) {
+            throw new PasswordChangedException();
+        }
+
         await this.handleCloseGoogleAlerts();
         await this.closeIntroduceSiteIfExists()
     }
@@ -170,7 +179,14 @@ class GLAutoForwardGmail {
         }
         this._currentPage = await this._browser.newPage();
         await this._currentPage.setUserAgent(this._userAgentSettingString);
-        await this._currentPage.setViewport({ width: this._defaultPageWidth, height: this._defaultPageHeight, deviceScaleFactor: 1 });
+        // await this._currentPage.setViewport({ 
+        //     // width: this._defaultPageWidth, 
+        //     // height: this._defaultPageHeight, 
+        //     width: 640,
+        //     height: 480,
+        //     deviceScaleFactor: 1
+        // });
+
         await this._currentPage.goto(url);
     }
 
@@ -274,7 +290,7 @@ class GLAutoForwardGmail {
             await this.OpenMailForwardSetting();
         }
         catch(e) {
-            console.log(`Error: ${e.message}.`);
+            console.log(`Error: Process failure!`);
         }
     }
 }

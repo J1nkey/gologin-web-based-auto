@@ -5,11 +5,8 @@ function CustomException(message) {
 }
 CustomException.prototype = Object.create(Error.prototype);
 
-function AccountDisabledException(message) {
-    if (typeof message === "string" && message.length === 0) {
-        message = "The account is disabled!"
-    }
-    else if (message === null) {
+function AccountDisabledException(message = 'The account is disabled!') {
+    if (message === null) {
         message = "The account is disabled!"
     }
 
@@ -18,16 +15,24 @@ function AccountDisabledException(message) {
 }
 AccountDisabledException.prototype = Object.create(Error.prototype);
 
-function VerifyAccountException(message, verifyType) {
-    if (typeof message === "string" && message.length === 0) {
+function VerifyAccountException(message = 'The account is required to verify') {
+    if (message === null) {
         message = "The account is required to verify"
     }
-    else if (message === null) {
-        message = "The account is required to verify"
-    }
-
+    const error = new Error(message);
+    return error;
 }
 VerifyAccountException.prototype = Object.create(Error.prototype);
 
-export { CustomException, AccountDisabledException, VerifyAccountException };  
+function PasswordChangedException(message = 'The password of account was changed before') {
+    if(message === null) {
+        message = 'The password of account was changed before';
+    }
+
+    const error = new Error(message);
+    return error;
+}
+PasswordChangedException.prototype = Object.create(Error.prototype);
+
+export { CustomException, AccountDisabledException, VerifyAccountException, PasswordChangedException };  
 export default function* () { CustomException };
